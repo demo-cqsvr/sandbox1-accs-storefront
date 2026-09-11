@@ -3,6 +3,7 @@ import { events } from '@dropins/tools/event-bus.js';
 
 import { tryRenderAemAssetsImage } from '@dropins/tools/lib/aem/assets.js';
 import { getMetadata } from '../../scripts/aem.js';
+import { homeContent } from '../../scripts/myaeon-content.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { fetchPlaceholders, getProductLink, rootLink } from '../../scripts/commerce.js';
 
@@ -61,6 +62,7 @@ function openOnKeydown(e) {
     const dropExpanded = focused.getAttribute('aria-expanded') === 'true';
     toggleAllNavSections(focused.closest('.nav-sections'));
     focused.setAttribute('aria-expanded', dropExpanded ? 'false' : 'true');
+    focused.querySelector('.nav-category-toggle')?.setAttribute('aria-expanded', String(!dropExpanded));
   }
 }
 
@@ -78,7 +80,9 @@ function toggleAllNavSections(sections, expanded = false) {
   sections
     .querySelectorAll('.nav-sections .default-content-wrapper > ul > li')
     .forEach((section) => {
-      section.setAttribute('aria-expanded', expanded);
+      const sectionExpanded = isDesktop.matches && String(expanded) === 'true';
+      section.setAttribute('aria-expanded', String(sectionExpanded));
+      section.querySelector('.nav-category-toggle')?.setAttribute('aria-expanded', String(sectionExpanded));
     });
 }
 
@@ -178,7 +182,7 @@ export default async function decorate(block) {
   block.textContent = '';
   const nav = document.createElement('nav');
   nav.id = 'nav';
-  while (fragment.firstElementChild) nav.append(fragment.firstElementChild);
+  while (fragment?.firstElementChild) nav.append(fragment.firstElementChild);
 
   const classes = ['brand', 'sections', 'tools'];
   classes.forEach((c, i) => {
@@ -186,7 +190,34 @@ export default async function decorate(block) {
     if (section) section.classList.add(`nav-${c}`);
   });
 
+  classes.forEach((name) => {
+    if (!nav.querySelector(`.nav-${name}`)) {
+      const section = document.createElement('div');
+      section.className = `nav-${name}`;
+      nav.append(section);
+    }
+  });
+
+  const announcement = document.createElement('div');
+  announcement.className = 'nav-announcement';
+  announcement.append(`${homeContent.announcement.text} `);
+  const announcementLink = document.createElement('a');
+  announcementLink.href = homeContent.announcement.href;
+  announcementLink.textContent = homeContent.announcement.label;
+  announcement.append(announcementLink);
+  block.append(announcement);
+
   const navBrand = nav.querySelector('.nav-brand');
+  const homeLink = document.createElement('a');
+  homeLink.href = rootLink('/');
+  homeLink.setAttribute('aria-label', `${homeContent.brand.name} home`);
+  const logo = document.createElement('img');
+  logo.src = homeContent.brand.image;
+  logo.alt = homeContent.brand.name;
+  logo.width = homeContent.brand.width;
+  logo.height = homeContent.brand.height;
+  homeLink.append(logo);
+  navBrand.replaceChildren(homeLink);
   const brandLink = navBrand.querySelector('.button');
   if (brandLink) {
     brandLink.className = '';
@@ -195,11 +226,60 @@ export default async function decorate(block) {
 
   const navSections = nav.querySelector('.nav-sections');
   if (navSections) {
+    const content = document.createElement('div');
+    content.className = 'default-content-wrapper';
+    const list = document.createElement('ul');
+    homeContent.navigation.forEach(({ name, href, children = [] }) => {
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = href;
+      link.textContent = name;
+      item.append(link);
+      if (children.length) {
+        const submenu = document.createElement('ul');
+        children.forEach((child) => {
+          const entry = document.createElement('li');
+          const childLink = document.createElement('a');
+          childLink.href = child.href;
+          childLink.textContent = child.name;
+          entry.append(childLink);
+          submenu.append(entry);
+        });
+        item.append(submenu);
+      }
+      list.append(item);
+    });
+    content.append(list);
+    navSections.replaceChildren(content);
     navSections
       .querySelectorAll(':scope .default-content-wrapper > ul > li')
-      .forEach((navSection) => {
+      .forEach((navSection, index) => {
         if (navSection.querySelector('ul')) navSection.classList.add('nav-drop');
         setupSubmenu(navSection);
+        const submenu = navSection.querySelector('.submenu-wrapper');
+        if (submenu) {
+          submenu.id = `nav-category-${index}`;
+          const categoryToggle = document.createElement('button');
+          categoryToggle.type = 'button';
+          categoryToggle.className = 'nav-category-toggle';
+          categoryToggle.setAttribute('aria-label', `Toggle ${navSection.firstChild.textContent} categories`);
+          categoryToggle.setAttribute('aria-controls', submenu.id);
+          categoryToggle.setAttribute('aria-expanded', 'false');
+          categoryToggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (isDesktop.matches) {
+              const expanded = navSection.getAttribute('aria-expanded') === 'true';
+              toggleAllNavSections(navSections);
+              navSection.setAttribute('aria-expanded', String(!expanded));
+              categoryToggle.setAttribute('aria-expanded', String(!expanded));
+              overlay.classList.toggle('show', !expanded);
+            } else {
+              const expanded = navSection.classList.toggle('active');
+              categoryToggle.setAttribute('aria-expanded', String(expanded));
+            }
+          });
+          navSection.firstChild.after(categoryToggle);
+        }
         navSection.addEventListener('click', (event) => {
           if (event.target.tagName === 'A') return;
           if (!isDesktop.matches) {
@@ -214,6 +294,7 @@ export default async function decorate(block) {
               return;
             }
             navSection.setAttribute('aria-expanded', 'true');
+            navSection.querySelector('.nav-category-toggle')?.setAttribute('aria-expanded', 'true');
             overlay.classList.add('show');
           }
         });
@@ -225,7 +306,7 @@ export default async function decorate(block) {
   /** Wishlist */
   const wishlist = document.createRange().createContextualFragment(`
      <div class="wishlist-wrapper nav-tools-wrapper">
-       <button type="button" class="nav-wishlist-button" aria-label="Wishlist"></button>
+       <button type="button" class="nav-wishlist-button" aria-label="My Wish List">My Wish List</button>
        <div class="wishlist-panel nav-tools-panel"></div>
      </div>
    `);
@@ -372,9 +453,11 @@ export default async function decorate(block) {
   /** Search */
   const searchFragment = document.createRange().createContextualFragment(`
   <div class="search-wrapper nav-tools-wrapper">
-    <button type="button" class="nav-search-button">Search</button>
     <div class="nav-search-input nav-search-panel nav-tools-panel">
-      <form id="search-bar-form"></form>
+      <form id="search-bar-form" role="search">
+        <input type="search" name="search" aria-label="Search entire store" placeholder="Search entire store here..." autocomplete="off">
+        <button type="submit" class="nav-search-button" aria-label="Search">Search</button>
+      </form>
       <div class="search-bar-result" style="display: none;"></div>
     </div>
   </div>
@@ -387,7 +470,15 @@ export default async function decorate(block) {
   const searchForm = searchPanel.querySelector('#search-bar-form');
   const searchResult = searchPanel.querySelector('.search-bar-result');
 
+  const searchInput = searchForm.querySelector('input');
+  searchForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const query = searchInput.value.trim();
+    if (query) window.location.href = `${rootLink('/search')}?q=${encodeURIComponent(query)}`;
+  });
+
   async function toggleSearch(state) {
+    searchPanel.dataset.requestedOpen = String(state);
     const pageSize = 4;
 
     if (state) {
@@ -399,7 +490,7 @@ export default async function decorate(block) {
           { search },
           { render },
           { SearchResults },
-          { provider: UI, Input, Button },
+          { provider: UI, Button },
         ] = await Promise.all([
           import('@dropins/storefront-product-discovery/api.js'),
           import('@dropins/storefront-product-discovery/render.js'),
@@ -453,49 +544,45 @@ export default async function decorate(block) {
           },
         })(searchResult);
 
-        searchForm.addEventListener('submit', (e) => {
-          e.preventDefault();
-          const query = e.target.search.value;
-          if (query.length) {
-            window.location.href = `${rootLink('/search')}?q=${encodeURIComponent(query)}`;
+        const updateSearch = () => {
+          const phrase = searchInput.value.trim();
+          if (document.activeElement === searchInput) {
+            searchPanel.classList.add('nav-tools-panel--show');
           }
-        });
+          if (!phrase) {
+            search(null, { scope: 'popover' });
+            return;
+          }
 
-        UI.render(Input, {
-          name: 'search',
-          placeholder: labels.Global?.Search,
-          onValue: (phrase) => {
-            if (!phrase) {
-              search(null, { scope: 'popover' });
-              return;
-            }
+          if (phrase.length < 3) {
+            return;
+          }
 
-            if (phrase.length < 3) {
-              return;
-            }
-
-            search({
-              phrase,
-              pageSize,
-              filter: [
-                { attribute: 'visibility', in: ['Search', 'Catalog, Search'] },
-              ],
-            }, { scope: 'popover' });
-          },
-        })(searchForm);
+          search({
+            phrase,
+            pageSize,
+            filter: [
+              { attribute: 'visibility', in: ['Search', 'Catalog, Search'] },
+            ],
+          }, { scope: 'popover' });
+        };
+        searchInput.addEventListener('input', updateSearch);
+        updateSearch();
       });
     }
 
-    togglePanel(searchPanel, state);
-    if (state) searchForm?.querySelector('input')?.focus();
+    searchPanel.classList.toggle('nav-tools-panel--show', searchPanel.dataset.requestedOpen === 'true');
   }
 
-  searchButton.addEventListener('click', () => toggleSearch(!searchPanel.classList.contains('nav-tools-panel--show')));
-
-  navTools.querySelector('.nav-search-button').addEventListener('click', () => {
-    if (isDesktop.matches) {
-      toggleAllNavSections(navSections);
-      overlay.classList.remove('show');
+  searchInput.addEventListener('focus', () => {
+    toggleSearch(true);
+    toggleAllNavSections(navSections);
+    overlay.classList.remove('show');
+  });
+  searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      toggleSearch(false);
     }
   });
 
@@ -565,4 +652,13 @@ export default async function decorate(block) {
     () => !isDesktop.matches && toggleMenu(nav, navSections, false),
   );
   renderAuthDropdown(navTools);
+  const accountLink = document.createElement('a');
+  accountLink.className = 'nav-account-link';
+  accountLink.href = rootLink('/customer/account');
+  accountLink.textContent = 'My Account';
+  navTools.prepend(accountLink);
+  const loginButton = navTools.querySelector('.nav-dropdown-button');
+  if (loginButton.querySelector('svg')) loginButton.textContent = 'Sign In';
+  loginButton.setAttribute('aria-label', loginButton.textContent.trim());
+  nav.append(navTools.querySelector('.search-wrapper'));
 }

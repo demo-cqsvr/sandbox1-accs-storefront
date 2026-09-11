@@ -74,12 +74,12 @@ The header creates three main sections from the nav fragment:
 5. **Analytics**: Publishes shopping cart view event when opened
 
 #### Search
-1. **Lazy Loading**: Search functionality loads on first click
+1. **Persistent Form**: The rounded search field and submit button are available immediately; suggestions load when the field receives focus.
 2. **Live Search**: Shows results after typing 3 characters with 4 results displayed
 3. **Product Links**: Each result links to product detail page
 4. **View All**: Footer button links to full search results page
 5. **Form Submit**: Enter key navigates to search results page
-6. **Panel Close**: Click outside or Escape key closes search panel
+6. **Panel Close**: Click outside or Escape hides suggestions while the search form stays available.
 
 #### Authentication
 1. **Sign In Flow**: 
@@ -130,3 +130,7 @@ The header creates three main sections from the nav fragment:
 - `renderAuthDropdown.js` - Authentication dropdown for desktop with sign in form and user menu
 - `renderSellerAssistedBuyingBanner.js` - Banner component for seller assisted buying sessions with session management
 
+
+## myAEON2go branding
+
+The shared header reads the local logo, announcement, and category navigation from `scripts/myaeon-content.js`. Metadata fragments still provide the commerce integration shell; branding and navigation are replaced with this curated reference content. The desktop layout has announcement, search/account, and category rows. Mobile keeps account links visible and places the hamburger alongside the search field. Search submits to `/search?q=` and retains the existing Drop-in popover results, image slot, and product routing. Account, wishlist, cart status, minicart, and authentication handlers remain in place.
