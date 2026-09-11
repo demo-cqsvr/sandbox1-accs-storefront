@@ -485,33 +485,32 @@ main img {
   .promo-grid > h2 { font-size: 2.4rem; }
 }
 
-/* Hero carousel — wide banner shown in full (contain), rounded */
-.hero-carousel > div { max-width: unset; padding: 0; }
-
+/* Hero carousel — banner shown in full (contain), rounded, contained width */
 .hero-carousel .carousel .carousel-slides {
-  height: auto;
+  height: auto !important;
   border-radius: 12px;
   box-shadow: var(--home-shadow);
 }
 
 .hero-carousel .carousel .carousel-slide {
-  min-height: 0;
+  min-height: 0 !important;
   aspect-ratio: 7 / 2;
   background: #fff;
 }
 
 .hero-carousel .carousel .carousel-slide .carousel-slide-image {
-  position: static;
+  position: static !important;
   width: 100%;
   height: 100%;
+  transform: none !important;
 }
 
 /* Beat carousel.css `.carousel-slide-image picture > img { object-fit: cover }` */
 .hero-carousel .carousel .carousel-slide .carousel-slide-image picture,
 .hero-carousel .carousel .carousel-slide .carousel-slide-image picture > img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
   background: #fff;
 }
 
