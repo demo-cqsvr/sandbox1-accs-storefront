@@ -485,28 +485,29 @@ main img {
   .promo-grid > h2 { font-size: 2.4rem; }
 }
 
-/* Hero carousel — banner shown in full (contain), rounded, contained width */
+/* Hero carousel — banner shown in full (contain), fixed 7:2, rounded */
 .hero-carousel .carousel .carousel-slides {
   height: auto !important;
+  align-items: stretch;
   border-radius: 12px;
   box-shadow: var(--home-shadow);
 }
 
 .hero-carousel .carousel .carousel-slide {
   min-height: 0 !important;
+  height: auto !important;
   aspect-ratio: 7 / 2;
   background: #fff;
 }
 
-.hero-carousel .carousel .carousel-slide .carousel-slide-image {
-  position: static !important;
-  width: 100%;
-  height: 100%;
-  transform: none !important;
+/* The block absolutely-positions the picture; keep that but force contain */
+.hero-carousel .carousel .carousel-slide .carousel-slide-image picture {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
-/* Beat carousel.css `.carousel-slide-image picture > img { object-fit: cover }` */
-.hero-carousel .carousel .carousel-slide .carousel-slide-image picture,
 .hero-carousel .carousel .carousel-slide .carousel-slide-image picture > img {
   width: 100% !important;
   height: 100% !important;
