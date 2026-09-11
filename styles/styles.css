@@ -445,6 +445,19 @@ main img {
   height: auto;
 }
 
+/*
+ * ACCS Catalog Service does not return image dimensions, so the product
+ * card image gets --imageHeight: NaN and its aspect-ratio breaks, making
+ * cards render at inconsistent native ratios. Force a uniform square and
+ * fit the whole product inside it.
+ */
+.product-discovery-product-list__grid .dropin-product-item-card img {
+  aspect-ratio: 1 / 1 !important;
+  object-fit: contain !important;
+  width: 100% !important;
+  height: auto !important;
+}
+
 .icon {
   display: inline-block;
   height: 2.4rem;
