@@ -458,6 +458,93 @@ main img {
   height: auto !important;
 }
 
+/* ===== myAEON2go homepage ===== */
+
+/* Shop by category — brand-coloured tiles */
+.category-tiles .cards > ul,
+.promo-grid .cards > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--spacing-small);
+}
+
+.category-tiles .cards > ul {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 600px) {
+  .category-tiles .cards > ul { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 900px) {
+  .category-tiles .cards > ul { grid-template-columns: repeat(6, 1fr); }
+}
+
+.category-tiles .cards li {
+  border: none;
+  border-radius: var(--shape-border-radius-3);
+  background: var(--color-brand-500);
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+}
+
+.category-tiles .cards li .cards-card-body {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--spacing-xsmall);
+}
+
+.category-tiles .cards li a {
+  color: var(--color-neutral-50);
+  font: var(--type-body-1-strong-font);
+  letter-spacing: var(--type-body-1-strong-letter-spacing);
+  text-decoration: none;
+}
+
+.category-tiles .cards li:hover {
+  background: var(--color-brand-600);
+}
+
+/* More ways to save — promo images */
+.promo-grid .cards > ul {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .promo-grid .cards > ul { grid-template-columns: 1fr 1fr; }
+}
+
+.promo-grid .cards li {
+  border: none;
+  border-radius: var(--shape-border-radius-3);
+  overflow: hidden;
+}
+
+.promo-grid .cards li .cards-card-image,
+.promo-grid .cards li img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Hero carousel section — let it stretch wider than default content column */
+.hero-carousel > div {
+  max-width: unset;
+  padding: 0;
+}
+
+/* myAEON2go logo in the header */
+header .nav-brand img {
+  height: 3.6rem;
+  width: auto;
+}
+
 .icon {
   display: inline-block;
   height: 2.4rem;
