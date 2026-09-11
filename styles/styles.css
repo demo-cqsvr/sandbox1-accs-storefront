@@ -652,15 +652,21 @@ main img {
 .promo-grid .cards li {
   overflow: hidden;
   border-radius: 12px;
-  background: #fff;
   box-shadow: var(--home-shadow);
+  line-height: 0;
+}
+
+.promo-grid .cards li .cards-card-image,
+.promo-grid .cards li a,
+.promo-grid .cards li picture {
+  display: block;
+  line-height: 0;
 }
 
 .promo-grid .cards li img {
   display: block;
   width: 100%;
   height: auto;
-  object-fit: contain;
 }
 
 @media (min-width: 600px) {
