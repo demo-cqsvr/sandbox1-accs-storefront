@@ -164,7 +164,12 @@ body:not(.appear) {
 
 header {
   grid-row: 1;
-  height: var(--nav-height);
+  /* Custom myAEON2go header (announcement + brand/tools/search rows) is taller
+     than --nav-height and sits in normal flow (nav-wrapper is position: relative),
+     so the <header> element must size to its content. A fixed height here made the
+     header overflow its grid track and paint over the top of the hero carousel. */
+  height: auto;
+  min-height: var(--nav-height);
 }
 
 main {
