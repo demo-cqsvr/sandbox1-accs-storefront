@@ -1,3 +1,4 @@
+import { getRootPath } from '@dropins/tools/lib/aem/configs.js';
 import {
   loadHeader,
   loadFooter,
@@ -9,6 +10,7 @@ import {
   loadSections,
   loadCSS,
   buildBlock,
+  readBlockConfig,
 } from './aem.js';
 import {
   loadCommerceEager,
@@ -193,6 +195,71 @@ export function decorateMain(main) {
   decorateButtons(main);
 }
 
+/** Composes the branded homepage without changing product or account pages. */
+function buildStorefrontHome(main) {
+  const root = getRootPath().replace(/\/$/, '');
+  if (window.location.pathname !== `${root}/`) return;
+
+  document.body.classList.add('myaeon-homepage');
+  document.title = 'myAEON2go | Fresh picks and everyday essentials';
+  const description = document.querySelector('meta[name="description"]');
+  if (description) {
+    description.content = 'Shop featured products, everyday essentials and the latest myAEON2go offers.';
+  }
+  if (main.querySelector('.myaeon-home')) return;
+
+  const section = document.createElement('div');
+  section.append(buildBlock('myaeon-home', ''));
+  main.replaceChildren(section);
+}
+
+/** Keeps the authored default PDP as a shared SKU-driven product template. */
+function buildStorefrontProduct(main) {
+  const root = getRootPath().replace(/\/$/, '');
+  if (window.location.pathname !== `${root}/products/default`
+    || !new URLSearchParams(window.location.search).has('sku')) return;
+
+  const productDetails = main.querySelector('.product-details') || buildBlock('product-details', '');
+  const section = document.createElement('div');
+  section.append(productDetails);
+  main.replaceChildren(section);
+  document.title = 'Product | myAEON2go';
+
+  // The template's authored product metadata must not describe the requested SKU.
+  document.head.querySelectorAll('script[type="application/ld+json"]').forEach((script) => {
+    try {
+      const data = JSON.parse(script.textContent);
+      const entries = Array.isArray(data) ? data : [data, ...(data?.['@graph'] || [])];
+      if (entries.some((entry) => entry?.['@type'] === 'Product')) script.remove();
+    } catch {
+      // Leave unrelated authored structured data unchanged.
+    }
+  });
+  document.head.querySelectorAll('meta[name="title"], meta[name="description"], meta[name="keywords"], meta[property^="og:"], meta[property^="product:"]').forEach((meta) => meta.remove());
+  document.head.querySelector('link[rel="canonical"]')?.remove();
+}
+
+/** Connect the active Commerce PDP recommendation unit to all product pages. */
+function buildProductRecommendations(main) {
+  if (!main.querySelector('.product-details')) return;
+  const sampleId = 'cf042e53-7efb-4a7e-b1bd-4f87d5c6ca84';
+  const activeId = 'cb0289f6-3a00-4c00-a0b7-dbd53270cd47';
+  const rows = [['recId', activeId]];
+  const existing = [...main.querySelectorAll('.product-recommendations')];
+  if (existing.length) {
+    existing.forEach((block) => {
+      const { recid } = readBlockConfig(block);
+      if (!recid || recid === sampleId) {
+        block.replaceChildren(...buildBlock('product-recommendations', rows).children);
+      }
+    });
+    return;
+  }
+  const section = document.createElement('div');
+  section.append(buildBlock('product-recommendations', rows));
+  main.append(section);
+}
+
 /**
  * Loads everything needed to get to LCP.
  * @param {Element} doc The container element
@@ -205,6 +272,9 @@ async function loadEager(doc) {
   if (main) {
     try {
       await initializeCommerce();
+      buildStorefrontHome(main);
+      buildStorefrontProduct(main);
+      buildProductRecommendations(main);
       decorateMain(main);
       applyTemplates(doc);
       await loadCommerceEager();

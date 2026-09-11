@@ -1,0 +1,295 @@
+.myaeon-home {
+  --home-pink: #bd1254;
+  --home-border: #e9e5e8;
+  --home-shadow: 0 8px 20px rgb(50 24 38 / 8%);
+
+  box-sizing: border-box;
+  color: #2b2830;
+  min-width: 0;
+  padding-bottom: 48px;
+}
+
+.myaeon-home a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.myaeon-home a:hover {
+  color: var(--home-pink);
+}
+
+.myaeon-home :is(a, button, [tabindex]):focus-visible {
+  outline: 3px solid var(--home-pink);
+  outline-offset: 3px;
+}
+
+.myaeon-home .myaeon-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: var(--home-shadow);
+  margin-bottom: 42px;
+}
+
+.myaeon-home .myaeon-hero-slide {
+  aspect-ratio: 7 / 2;
+  background: white;
+}
+
+.myaeon-home .myaeon-hero-slide[hidden] {
+  display: none;
+}
+
+.myaeon-home .myaeon-hero-slide a,
+.myaeon-home .myaeon-hero-slide img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.myaeon-home .myaeon-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--home-border);
+  border-radius: 50%;
+  box-shadow: 0 4px 14px rgb(50 24 38 / 14%);
+  background: white;
+  color: var(--home-pink);
+  font-weight: 700;
+  font-family: inherit;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.myaeon-home .myaeon-control:hover {
+  background: var(--home-pink);
+  color: white;
+}
+
+.myaeon-home .myaeon-hero-previous,
+.myaeon-home .myaeon-hero-next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.myaeon-home .myaeon-hero-previous { left: 6px; }
+.myaeon-home .myaeon-hero-next { right: 6px; }
+
+.myaeon-home .myaeon-hero-dots {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  display: flex;
+  transform: translateX(-50%);
+}
+
+.myaeon-home .myaeon-hero-dot {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.myaeon-home .myaeon-hero-dot::before {
+  content: '';
+  height: 9px;
+  width: 9px;
+  border: 1px solid var(--home-pink);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 80%);
+}
+
+.myaeon-home .myaeon-hero-dot[aria-current='true']::before {
+  background: var(--home-pink);
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 85%);
+}
+
+.myaeon-home .myaeon-hero-pause {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 44px;
+  height: 44px;
+  font-size: 16px;
+}
+
+.myaeon-home .myaeon-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.myaeon-home .myaeon-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.myaeon-home .myaeon-section-heading h2 {
+  margin: 0;
+  color: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.myaeon-home .myaeon-products,
+.myaeon-home .myaeon-categories,
+.myaeon-home .myaeon-offers {
+  margin-bottom: 44px;
+}
+
+.myaeon-home .myaeon-products-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.myaeon-home .myaeon-products-track {
+  display: flex;
+  gap: 16px;
+  margin: 0;
+  padding: 4px 2px 20px;
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-padding-inline: 2px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+
+.myaeon-home .myaeon-product-card {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 calc(71.4286% - 4.5714px);
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--home-border);
+  border-radius: 12px;
+  background: white;
+  box-shadow: var(--home-shadow);
+  scroll-snap-align: start;
+}
+
+.myaeon-home .myaeon-product-card a {
+  color: #2b2830;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.myaeon-home .myaeon-product-card img {
+  display: block;
+  aspect-ratio: 1;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  margin-bottom: 12px;
+}
+
+.myaeon-home .myaeon-product-card h3 {
+  margin: 0 0 16px;
+  min-height: 45px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.myaeon-home .myaeon-product-price {
+  margin-top: auto;
+  color: var(--home-pink);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.myaeon-home .myaeon-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.myaeon-home .myaeon-category-card {
+  color: #2b2830;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88px;
+  height: 100%;
+  padding: 16px;
+  border: 1px solid var(--home-border);
+  border-radius: 12px;
+  background: white;
+  box-shadow: var(--home-shadow);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.myaeon-home .myaeon-product-card a:hover,
+.myaeon-home .myaeon-category-card:hover {
+  color: var(--home-pink);
+  border-color: var(--home-pink);
+}
+
+.myaeon-home .myaeon-offer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.myaeon-home .myaeon-offer-card {
+  display: block;
+  overflow: hidden;
+  border-radius: 12px;
+  background: white;
+  box-shadow: var(--home-shadow);
+}
+
+.myaeon-home .myaeon-offer-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+@media (min-width: 600px) {
+  .myaeon-home .myaeon-product-card { flex-basis: calc((100% - 40px) / 3); }
+  .myaeon-home .myaeon-products-track { gap: 20px; }
+
+  .myaeon-home .myaeon-category-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .myaeon-home .myaeon-offer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .myaeon-home .myaeon-offer-wide { grid-column: 1 / -1; }
+  .myaeon-home .myaeon-section-heading h2 { font-size: 24px; }
+  .myaeon-home .myaeon-hero-previous { left: 14px; }
+  .myaeon-home .myaeon-hero-next { right: 14px; }
+}
+
+@media (min-width: 1200px) {
+  .myaeon-home .myaeon-product-card { flex-basis: calc((100% - 80px) / 5); }
+  .myaeon-home .myaeon-category-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+}
