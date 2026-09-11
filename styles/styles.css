@@ -458,164 +458,201 @@ main img {
   height: auto !important;
 }
 
-/* ===== myAEON2go homepage ===== */
+/* ===== myAEON2go homepage (matches myaeon2go.com) ===== */
 
-/* Shop by category — brand-coloured tiles */
-.category-tiles .cards > ul,
-.promo-grid .cards > ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: var(--spacing-small);
+.hero-carousel,
+.featured,
+.category-tiles,
+.promo-grid {
+  --home-pink: #bd1254;
+  --home-border: #e9e5e8;
+  --home-shadow: 0 8px 20px rgb(50 24 38 / 8%);
 }
 
-.category-tiles .cards > ul {
-  grid-template-columns: repeat(2, 1fr);
+/* Section headings */
+.featured > h2,
+.category-tiles > h2,
+.promo-grid > h2 {
+  margin: 0 0 18px;
+  font: 700 2rem/1.25 var(--type-base-font-family);
+  letter-spacing: 0;
+  color: var(--color-neutral-800);
 }
 
 @media (min-width: 600px) {
-  .category-tiles .cards > ul { grid-template-columns: repeat(3, 1fr); }
+  .featured > h2,
+  .category-tiles > h2,
+  .promo-grid > h2 { font-size: 2.4rem; }
 }
 
-@media (min-width: 900px) {
-  .category-tiles .cards > ul { grid-template-columns: repeat(6, 1fr); }
-}
+/* Hero carousel — wide banner, contain, rounded */
+.hero-carousel > div { max-width: unset; padding: 0; }
 
-.category-tiles .cards li {
-  border: none;
-  border-radius: var(--shape-border-radius-3);
-  background: var(--color-brand-500);
-  aspect-ratio: 3 / 2;
-  overflow: hidden;
-}
-
-.category-tiles .cards li .cards-card-body {
-  height: 100%;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: var(--spacing-xsmall);
-}
-
-.category-tiles .cards li a {
-  color: var(--color-neutral-50);
-  font: var(--type-body-1-strong-font);
-  letter-spacing: var(--type-body-1-strong-letter-spacing);
-  text-decoration: none;
-}
-
-.category-tiles .cards li:hover {
-  background: var(--color-brand-600);
-}
-
-/* More ways to save — promo images */
-.promo-grid .cards > ul {
-  grid-template-columns: 1fr;
-}
-
-@media (min-width: 900px) {
-  .promo-grid .cards > ul { grid-template-columns: 1fr 1fr; }
-}
-
-.promo-grid .cards li {
-  border: none;
-  border-radius: var(--shape-border-radius-3);
-  overflow: hidden;
-}
-
-.promo-grid .cards li .cards-card-image,
-.promo-grid .cards li img {
-  display: block;
-  width: 100%;
+.hero-carousel .carousel .carousel-slides {
   height: auto;
+  border-radius: 12px;
+  box-shadow: var(--home-shadow);
 }
 
-/* Hero carousel section — let it stretch wider than default content column */
-.hero-carousel > div {
-  max-width: unset;
-  padding: 0;
+.hero-carousel .carousel .carousel-slide {
+  min-height: 0;
+  aspect-ratio: 7 / 2;
 }
 
-/* myAEON2go logo in the header */
-header .nav-brand img {
-  height: 3.6rem;
-  width: auto;
+.hero-carousel .carousel .carousel-slide .carousel-slide-image,
+.hero-carousel .carousel .carousel-slide picture,
+.hero-carousel .carousel .carousel-slide img {
+  height: 100%;
+  width: 100%;
 }
 
-/* Featured products — horizontal scrollable product cards */
+.hero-carousel .carousel .carousel-slide img {
+  object-fit: contain;
+  background: #fff;
+}
+
+/* Featured products — horizontal scroll of cards */
 .featured .product-tiles {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(45%, 1fr);
-  gap: var(--spacing-medium);
+  display: flex;
+  gap: 16px;
+  margin: 0;
+  padding: 4px 2px 20px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  padding-bottom: var(--spacing-small);
-  scrollbar-width: none;
-}
-
-.featured .product-tiles::-webkit-scrollbar {
-  display: none;
-}
-
-@media (min-width: 600px) {
-  .featured .product-tiles { grid-auto-columns: minmax(30%, 1fr); }
-}
-
-@media (min-width: 900px) {
-  .featured .product-tiles {
-    grid-auto-columns: minmax(0, calc((100% - 4 * var(--spacing-medium)) / 5));
-  }
+  scrollbar-width: thin;
 }
 
 .featured .product-tiles > div {
-  scroll-snap-align: start;
-  border: var(--shape-border-width-1) solid var(--color-neutral-300);
-  border-radius: var(--shape-border-radius-3);
-  overflow: hidden;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  transition: box-shadow 0.2s;
-}
-
-.featured .product-tiles > div:hover {
-  box-shadow: var(--shape-shadow-2);
+  flex: 0 0 calc(71.4286% - 4.6px);
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--home-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--home-shadow);
+  scroll-snap-align: start;
 }
 
 .featured .product-tiles img {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: contain;
   display: block;
+  aspect-ratio: 1;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  margin-bottom: 12px;
 }
 
 .featured .product-tiles > div > div:last-child {
-  padding: var(--spacing-small);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xxsmall);
   flex: 1;
 }
 
 .featured .product-tiles a {
-  color: var(--color-brand-600);
-  font: var(--type-body-2-strong-font);
-  letter-spacing: var(--type-body-2-strong-letter-spacing);
+  color: var(--color-neutral-800);
+  font: 600 1.6rem/1.4 var(--type-base-font-family);
+  letter-spacing: 0;
   text-decoration: none;
+  min-height: 45px;
+  margin-bottom: 12px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
+.featured .product-tiles a:hover { color: var(--home-pink); }
+
 .featured .product-tiles p {
   margin: auto 0 0;
-  font: var(--type-body-1-strong-font);
-  letter-spacing: var(--type-body-1-strong-letter-spacing);
+  color: var(--home-pink);
+  font: 700 1.4rem/1.3 var(--type-base-font-family);
+  letter-spacing: 0;
+}
+
+@media (min-width: 600px) {
+  .featured .product-tiles > div { flex-basis: calc((100% - 40px) / 3); }
+  .featured .product-tiles { gap: 20px; }
+}
+
+@media (min-width: 1200px) {
+  .featured .product-tiles > div { flex-basis: calc((100% - 80px) / 5); }
+}
+
+/* Shop by category — tiles */
+.category-tiles .cards > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.category-tiles .cards li {
+  box-sizing: border-box;
+  min-height: 88px;
+  border: 1px solid var(--home-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--home-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.category-tiles .cards li .cards-card-body { margin: 0; padding: 16px; }
+
+.category-tiles .cards li a {
   color: var(--color-neutral-800);
+  font: 600 1.6rem/1.3 var(--type-base-font-family);
+  letter-spacing: 0;
+  text-decoration: none;
+}
+
+.category-tiles .cards li:hover { border-color: var(--home-pink); }
+.category-tiles .cards li:hover a { color: var(--home-pink); }
+
+@media (min-width: 600px) {
+  .category-tiles .cards > ul { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+}
+
+@media (min-width: 1200px) {
+  .category-tiles .cards > ul { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+/* More ways to save — offer banners */
+.promo-grid .cards > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.promo-grid .cards li {
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--home-shadow);
+}
+
+.promo-grid .cards li img { display: block; width: 100%; height: auto; }
+
+@media (min-width: 600px) {
+  .promo-grid .cards > ul { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .promo-grid .cards li.wide { grid-column: 1 / -1; }
+}
+
+/* myAEON2go logo in the header */
+header .nav-brand img {
+  height: 3.6rem;
+  width: auto;
 }
 
 .icon {
