@@ -646,6 +646,7 @@ main img {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+  align-items: start;
 }
 
 .promo-grid .cards li {
@@ -655,11 +656,17 @@ main img {
   box-shadow: var(--home-shadow);
 }
 
-.promo-grid .cards li img { display: block; width: 100%; height: auto; }
+.promo-grid .cards li img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
 
 @media (min-width: 600px) {
   .promo-grid .cards > ul { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-  .promo-grid .cards li.wide { grid-column: 1 / -1; }
+  /* first offer is a full-width banner, like the reference "offer-wide" */
+  .promo-grid .cards li:first-child { grid-column: 1 / -1; }
 }
 
 /* myAEON2go logo in the header */
