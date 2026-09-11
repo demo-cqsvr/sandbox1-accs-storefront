@@ -539,6 +539,12 @@ main img {
   padding: 0;
 }
 
+/* myAEON2go logo in the header */
+header .nav-brand img {
+  height: 3.6rem;
+  width: auto;
+}
+
 .icon {
   display: inline-block;
   height: 2.4rem;
