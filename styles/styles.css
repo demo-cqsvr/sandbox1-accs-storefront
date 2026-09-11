@@ -486,6 +486,13 @@ main img {
 }
 
 /* Hero carousel — banner shown in full (contain), fixed 7:2, rounded */
+/* Undo the carousel block's full-bleed so the hero sits in the content column */
+.hero-carousel .carousel-wrapper {
+  max-width: 1264px !important;
+  margin: 0 auto !important;
+  padding: 0 32px !important;
+}
+
 .hero-carousel .carousel .carousel-slides {
   height: auto !important;
   align-items: stretch;
