@@ -55,6 +55,16 @@ function bindEvents(block) {
     });
   });
 
+  const navButtons = block.querySelector('.carousel-navigation-buttons');
+  if (navButtons) {
+    navButtons.querySelector('.slide-prev')?.addEventListener('click', () => {
+      showSlide(block, parseInt(block.dataset.activeSlide || '0', 10) - 1);
+    });
+    navButtons.querySelector('.slide-next')?.addEventListener('click', () => {
+      showSlide(block, parseInt(block.dataset.activeSlide || '0', 10) + 1);
+    });
+  }
+
   const slideObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -162,6 +172,14 @@ export default async function decorate(block) {
   });
 
   container.append(slidesWrapper);
+  if (!isSingleSlide) {
+    const navButtons = document.createElement('div');
+    navButtons.classList.add('carousel-navigation-buttons');
+    navButtons.innerHTML = `
+      <button type="button" class="slide-prev" aria-label="${placeholders.previousSlide || 'Previous Slide'}"></button>
+      <button type="button" class="slide-next" aria-label="${placeholders.nextSlide || 'Next Slide'}"></button>`;
+    container.append(navButtons);
+  }
   block.prepend(container);
   if (!isSingleSlide) {
     bindEvents(block);

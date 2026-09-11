@@ -527,6 +527,24 @@ main img {
   background: #fff;
 }
 
+/* Prev/next arrows — white pill with pink chevron, inverts on hover */
+.hero-carousel .carousel .carousel-navigation-buttons {
+  left: 16px;
+  right: 16px;
+}
+
+.hero-carousel .carousel .carousel-navigation-buttons button {
+  background: #fff;
+  color: var(--home-pink);
+  box-shadow: 0 4px 14px rgb(50 24 38 / 22%);
+}
+
+.hero-carousel .carousel .carousel-navigation-buttons button:hover,
+.hero-carousel .carousel .carousel-navigation-buttons button:focus-visible {
+  background: var(--home-pink);
+  color: #fff;
+}
+
 /* Featured products — horizontal scroll of cards (cards block) */
 .featured .cards > ul {
   list-style: none;
