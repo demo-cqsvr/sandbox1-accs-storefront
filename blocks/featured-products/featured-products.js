@@ -38,9 +38,10 @@ function getAmount(product) {
 
 function formatPrice(value, currency) {
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat('en-MY', {
       style: 'currency',
-      currency: currency || 'USD',
+      currency: currency || 'MYR',
+      currencyDisplay: 'code', // show "MYR 19.90" to match the storefront currency label
     }).format(value);
   } catch (e) {
     return `${currency || ''} ${value}`.trim();
