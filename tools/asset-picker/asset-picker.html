@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AEM Assets Picker</title>
+  <!-- Adobe Assets Selector micro-frontend (same build da.live uses) -->
+  <script src="https://experience.adobe.com/solutions/CQ-assets-selectors/static-assets/resources/assets-selectors.js"></script>
+  <style>
+    :root { --bg:#fff; --fg:#2c2c2c; --muted:#6e6e6e; --line:#e1e1e1; --accent:#1473e6; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--fg); background: var(--bg); font-size: 14px;
+      display: flex; flex-direction: column; height: 100vh;
+    }
+    #status { padding: 16px; color: var(--muted); line-height: 1.5; }
+    #status b { color: var(--fg); }
+    #status code { background:#f4f4f4; padding:1px 5px; border-radius:4px; font-size:12px; }
+    #selector { flex: 1; min-height: 0; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#1f1f1f; --fg:#e8e8e8; --muted:#9a9a9a; --line:#3a3a3a; }
+      #status code { background:#2a2a2a; }
+    }
+  </style>
+</head>
+<body>
+  <div id="status">Connecting to da.live…</div>
+  <div id="selector"></div>
+
+  <script type="module">
+    // ---------------------------------------------------------------------
+    // da.live handshake: receive { ready, project, token } + a MessagePort.
+    // We insert selected assets back into the doc via the port (sendHTML).
+    // ---------------------------------------------------------------------
+    let daPort = null;
+    let daToken = null;
+    const $status = document.getElementById('status');
+    const $selector = document.getElementById('selector');
+
+    const ready = new Promise((resolve) => {
+      window.addEventListener('message', (e) => {
+        if (e.data && e.data.ready) {
+          daToken = e.data.token || null;
+          if (e.ports && e.ports[0]) daPort = e.ports[0];
+          resolve();
+        }
+      });
+      // Fallback for standalone/testing (no da.live host).
+      setTimeout(resolve, 3000);
+    });
+
+    function sendToDa(action, details) {
+      const msg = { action, details };
+      if (daPort) daPort.postMessage(msg);
+      else try { window.parent.postMessage(msg, '*'); } catch (_) { /* noop */ }
+    }
+
+    // ---------------------------------------------------------------------
+    // Optional site config (read once from /config.json, same origin):
+    //   aem.assets.imsClientId        -> use own IMS auth flow instead of da.live token
+    //   aem.assets.imsScope
+    //   aem.assets.imsOrg
+    //   aem.assets.allowedRepositoryIds (comma list) -> restrict the repo switcher
+    // When none are set we use da.live's token and show ALL repos the user can access.
+    // ---------------------------------------------------------------------
+    async function readConfig() {
+      try {
+        const res = await fetch('/config.json', { cache: 'no-store' });
+        const json = await res.json();
+        const p = (json.public || json).default || {};
+        const list = (p['aem.assets.allowedRepositoryIds'] || '')
+          .split(',').map((s) => s.trim()).filter(Boolean);
+        return {
+          imsClientId: p['aem.assets.imsClientId'] || '',
+          imsScope: p['aem.assets.imsScope']
+            || 'AdobeID,openid,read_organizations,additional_info.projectedProductContext,aem.frontend.all',
+          imsOrg: p['aem.assets.imsOrg'] || '',
+          allowedRepositoryIds: list,
+        };
+      } catch {
+        return { imsClientId: '', imsScope: '', imsOrg: '', allowedRepositoryIds: [] };
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // Selected asset -> delivery URL (mirrors da.live's url builder).
+    // Targets AEM DM Open API delivery: /adobe/assets/<assetId>/as/<name>.
+    // ---------------------------------------------------------------------
+    const BASE = '/adobe/assets';
+    const RENDITION_REL = 'http://ns.adobe.com/adobecloud/rel/rendition';
+    const seo = (n) => (n && n.includes('.') ? n.split('.').slice(0, -1).join('.') : (n || ''));
+    const isImage = (a) => (a.mimetype || a['dc:format'] || '').toLowerCase().startsWith('image/');
+
+    function resolveAssetUrl(a) {
+      const host = a['repo:repositoryId'];
+      const assetId = a['repo:assetId'] || a['repo:id'];
+      const name = a['repo:name'] || a.name || '';
+      if (host && assetId) {
+        if (isImage(a)) return `https://${host}${BASE}/${assetId}/as/${seo(name)}.avif`;
+        return `https://${host}${BASE}/${assetId}/original/as/${name}`;
+      }
+      // Author-tier fallbacks
+      const rend = a._links && a._links[RENDITION_REL];
+      if (Array.isArray(rend) && rend[0] && rend[0].href) return rend[0].href;
+      if (a.path && host) return `https://${host.replace('author', 'publish')}${a.path}`;
+      return '';
+    }
+
+    function altOf(a) {
+      const meta = a._embedded && a._embedded['http://ns.adobe.com/adobecloud/rel/metadata/asset'];
+      return (meta && (meta['Iptc4xmpExt:ExtDescrAccessibility'] || meta['dc:description'] || meta['dc:title']))
+        || (a['dc:title'] && (a['dc:title']['o:default'] || a['dc:title']))
+        || a.name || '';
+    }
+
+    const esc = (s = '') => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    function insertAssets(assets) {
+      const imgs = (Array.isArray(assets) ? assets : [assets])
+        .map((a) => ({ src: resolveAssetUrl(a), alt: altOf(a) }))
+        .filter((x) => x.src)
+        .map((x) => `<p><img src="${esc(x.src)}" alt="${esc(x.alt)}"></p>`)
+        .join('');
+      if (imgs) sendToDa('sendHTML', imgs);
+    }
+
+    // ---------------------------------------------------------------------
+    // Render the Assets Selector.
+    //  - No repositoryId  -> the repo switcher lists every repository the
+    //    signed-in user can access (filtered by allowedRepositoryIds if set).
+    // ---------------------------------------------------------------------
+    function renderWithToken(token, cfg) {
+      const props = {
+        imsToken: token,
+        aemTierType: ['delivery', 'author'],
+        handleSelection: insertAssets,
+        onClose: () => {},
+        colorScheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+      };
+      if (cfg.allowedRepositoryIds.length) props.allowedRepositoryIds = cfg.allowedRepositoryIds;
+      if (cfg.imsOrg) props.imsOrg = cfg.imsOrg;
+      window.PureJSSelectors.renderAssetSelector($selector, props);
+    }
+
+    function renderWithAuthFlow(cfg) {
+      const imsProps = {
+        env: 'prod',
+        imsClientId: cfg.imsClientId,
+        imsScope: cfg.imsScope,
+        redirectUrl: window.location.href,
+        modalMode: true,
+      };
+      if (cfg.imsOrg) imsProps.imsOrg = cfg.imsOrg;
+      window.PureJSSelectors.registerAssetsSelectorsAuthService(imsProps);
+      const props = {
+        aemTierType: ['delivery', 'author'],
+        handleSelection: insertAssets,
+        onClose: () => {},
+        colorScheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+      };
+      if (cfg.allowedRepositoryIds.length) props.allowedRepositoryIds = cfg.allowedRepositoryIds;
+      if (cfg.imsOrg) props.imsOrg = cfg.imsOrg;
+      window.PureJSSelectors.renderAssetSelectorWithAuthFlow($selector, props, () => {});
+    }
+
+    (async function init() {
+      await ready;
+      const cfg = await readConfig();
+
+      if (!window.PureJSSelectors) {
+        $status.innerHTML = 'Could not load the Adobe Assets Selector script.';
+        return;
+      }
+
+      // Prefer an explicitly configured IMS client (its own login = full repo
+      // discovery). Otherwise reuse the da.live session token.
+      if (cfg.imsClientId && window.PureJSSelectors.renderAssetSelectorWithAuthFlow) {
+        $status.hidden = true;
+        renderWithAuthFlow(cfg);
+        return;
+      }
+
+      if (daToken) {
+        $status.hidden = true;
+        renderWithToken(daToken, cfg);
+        return;
+      }
+
+      $status.innerHTML = 'No AEM access was available. Sign in to da.live, or set '
+        + '<code>aem.assets.imsClientId</code> in <code>/config.json</code> to use a '
+        + 'dedicated Assets Selector sign-in.';
+    }());
+  </script>
+</body>
+</html>
