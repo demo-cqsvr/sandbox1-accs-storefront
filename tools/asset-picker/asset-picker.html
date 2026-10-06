@@ -4,10 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AEM Assets Picker</title>
-  <!-- Adobe Assets Selector micro-frontend (same build da.live uses) -->
   <script src="https://experience.adobe.com/solutions/CQ-assets-selectors/static-assets/resources/assets-selectors.js"></script>
   <style>
-    :root { --bg:#fff; --fg:#2c2c2c; --muted:#6e6e6e; --line:#e1e1e1; --accent:#1473e6; }
+    :root { --bg:#fff; --fg:#2c2c2c; --muted:#6e6e6e; --line:#e1e1e1; --accent:#1473e6; --accent-fg:#fff; }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; }
     body {
@@ -15,102 +14,52 @@
       color: var(--fg); background: var(--bg); font-size: 14px;
       display: flex; flex-direction: column; height: 100vh;
     }
-    #status { padding: 16px; color: var(--muted); line-height: 1.5; }
-    #status b { color: var(--fg); }
-    #status code { background:#f4f4f4; padding:1px 5px; border-radius:4px; font-size:12px; }
+    /* Controller (small da.live panel) */
+    .pad { padding: 16px; }
+    .lead { line-height: 1.5; color: var(--muted); margin: 0 0 14px; }
+    button.primary {
+      font: inherit; cursor: pointer; width: 100%; padding: 10px 12px;
+      border-radius: 8px; border: 1px solid var(--accent);
+      background: var(--accent); color: var(--accent-fg); font-weight: 600;
+    }
+    button.primary:disabled { opacity: .5; cursor: default; }
+    .note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+    /* Popup (full window) */
     #selector { flex: 1; min-height: 0; }
     #dbg {
       font: 11px ui-monospace, Menlo, monospace; color: var(--muted);
-      border-top: 1px solid var(--line); padding: 6px 10px; white-space: pre-wrap;
-      max-height: 120px; overflow: auto; background: rgba(127,127,127,.06);
+      border-top: 1px solid var(--line); padding: 5px 10px; white-space: pre-wrap;
+      max-height: 90px; overflow: auto; background: rgba(127,127,127,.06);
     }
-    #dbg b { color: var(--accent); }
     @media (prefers-color-scheme: dark) {
       :root { --bg:#1f1f1f; --fg:#e8e8e8; --muted:#9a9a9a; --line:#3a3a3a; }
-      #status code { background:#2a2a2a; }
     }
   </style>
 </head>
 <body>
-  <div id="status">Connecting to da.live…</div>
-  <div id="selector"></div>
+  <div id="root"></div>
   <div id="dbg"></div>
 
   <script type="module">
-    // ---------------------------------------------------------------------
-    // da.live handshake: receive { ready, project, token } + a MessagePort.
-    // We insert selected assets back into the doc via the port (sendHTML).
-    // ---------------------------------------------------------------------
-    let daPort = null;
-    let daToken = null;
-    const $status = document.getElementById('status');
-    const $selector = document.getElementById('selector');
     const $dbg = document.getElementById('dbg');
     const dbg = (m) => { $dbg.innerHTML += `${m}\n`; };
-    window.addEventListener('error', (e) => dbg(`window error: ${e.message}`));
-    window.addEventListener('unhandledrejection', (e) => dbg(`promise rejection: ${e.reason?.message || e.reason}`));
+    window.addEventListener('error', (e) => dbg(`err: ${e.message}`));
+    window.addEventListener('unhandledrejection', (e) => dbg(`rej: ${e.reason?.message || e.reason}`));
 
-    const ready = new Promise((resolve) => {
-      window.addEventListener('message', (e) => {
-        if (e.data && e.data.ready) {
-          daToken = e.data.token || null;
-          if (e.ports && e.ports[0]) daPort = e.ports[0];
-          resolve();
-        }
-      });
-      // Fallback for standalone/testing (no da.live host).
-      setTimeout(resolve, 3000);
-    });
+    const isPopup = new URLSearchParams(location.search).get('mode') === 'popup';
 
-    // Decode a JWT payload (the da.live access token) to reuse its client_id/scope.
+    // ---- shared helpers --------------------------------------------------
     function decodeJwt(t) {
       try {
         const p = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
         return JSON.parse(decodeURIComponent(escape(atob(p))));
       } catch { return {}; }
     }
-
-    function sendToDa(action, details) {
-      const msg = { action, details };
-      if (daPort) daPort.postMessage(msg);
-      else try { window.parent.postMessage(msg, '*'); } catch (_) { /* noop */ }
-    }
-
-    // ---------------------------------------------------------------------
-    // Optional site config (read once from /config.json, same origin):
-    //   aem.assets.imsClientId        -> use own IMS auth flow instead of da.live token
-    //   aem.assets.imsScope
-    //   aem.assets.imsOrg
-    //   aem.assets.allowedRepositoryIds (comma list) -> restrict the repo switcher
-    // When none are set we use da.live's token and show ALL repos the user can access.
-    // ---------------------------------------------------------------------
-    async function readConfig() {
-      try {
-        const res = await fetch('/config.json', { cache: 'no-store' });
-        const json = await res.json();
-        const p = (json.public || json).default || {};
-        const list = (p['aem.assets.allowedRepositoryIds'] || '')
-          .split(',').map((s) => s.trim()).filter(Boolean);
-        return {
-          imsClientId: p['aem.assets.imsClientId'] || '',
-          imsScope: p['aem.assets.imsScope']
-            || 'AdobeID,openid,read_organizations,additional_info.projectedProductContext,aem.frontend.all',
-          imsOrg: p['aem.assets.imsOrg'] || '',
-          allowedRepositoryIds: list,
-        };
-      } catch {
-        return { imsClientId: '', imsScope: '', imsOrg: '', allowedRepositoryIds: [] };
-      }
-    }
-
-    // ---------------------------------------------------------------------
-    // Selected asset -> delivery URL (mirrors da.live's url builder).
-    // Targets AEM DM Open API delivery: /adobe/assets/<assetId>/as/<name>.
-    // ---------------------------------------------------------------------
     const BASE = '/adobe/assets';
     const RENDITION_REL = 'http://ns.adobe.com/adobecloud/rel/rendition';
     const seo = (n) => (n && n.includes('.') ? n.split('.').slice(0, -1).join('.') : (n || ''));
     const isImage = (a) => (a.mimetype || a['dc:format'] || '').toLowerCase().startsWith('image/');
+    const esc = (s = '') => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
     function resolveAssetUrl(a) {
       const host = a['repo:repositoryId'];
@@ -120,120 +69,104 @@
         if (isImage(a)) return `https://${host}${BASE}/${assetId}/as/${seo(name)}.avif`;
         return `https://${host}${BASE}/${assetId}/original/as/${name}`;
       }
-      // Author-tier fallbacks
       const rend = a._links && a._links[RENDITION_REL];
       if (Array.isArray(rend) && rend[0] && rend[0].href) return rend[0].href;
       if (a.path && host) return `https://${host.replace('author', 'publish')}${a.path}`;
       return '';
     }
-
     function altOf(a) {
       const meta = a._embedded && a._embedded['http://ns.adobe.com/adobecloud/rel/metadata/asset'];
       return (meta && (meta['Iptc4xmpExt:ExtDescrAccessibility'] || meta['dc:description'] || meta['dc:title']))
         || (a['dc:title'] && (a['dc:title']['o:default'] || a['dc:title']))
         || a.name || '';
     }
-
-    const esc = (s = '') => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
-    function insertAssets(assets) {
-      const imgs = (Array.isArray(assets) ? assets : [assets])
+    function assetsToHtml(assets) {
+      return (Array.isArray(assets) ? assets : [assets])
         .map((a) => ({ src: resolveAssetUrl(a), alt: altOf(a) }))
         .filter((x) => x.src)
         .map((x) => `<p><img src="${esc(x.src)}" alt="${esc(x.alt)}"></p>`)
         .join('');
-      if (imgs) sendToDa('sendHTML', imgs);
     }
 
-    // ---------------------------------------------------------------------
-    // Render the Assets Selector.
-    //  - No repositoryId  -> the repo switcher lists every repository the
-    //    signed-in user can access (filtered by allowedRepositoryIds if set).
-    // ---------------------------------------------------------------------
-    function renderWithToken(token, cfg) {
-      const claims = decodeJwt(token);
-      // When reusing the da.live token, its own client_id/scope are authoritative.
-      const imsClientId = claims.client_id || cfg.imsClientId;
-      const imsScope = claims.scope || cfg.imsScope;
-      // da.live tokens carry the org in the `pps`/`aa_id` area; try common claims.
-      const imsOrg = cfg.imsOrg || claims.org || claims.imsOrg || '';
-      dbg(`token-render: clientId=${imsClientId || '(none)'}, scope len=${(imsScope || '').length}, org=${imsOrg || '(none)'}`);
-      const props = {
-        imsToken: token,
-        imsClientId,
-        imsScope,
-        aemTierType: ['delivery', 'author'],
-        handleSelection: insertAssets,
-        onClose: () => {},
-        colorScheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
-      };
-      if (imsOrg) props.imsOrg = imsOrg;
-      if (cfg.allowedRepositoryIds.length) props.allowedRepositoryIds = cfg.allowedRepositoryIds;
-      window.PureJSSelectors.renderAssetSelector($selector, props);
-    }
+    // =====================================================================
+    // POPUP MODE: full-size window that renders the Assets Selector.
+    // Receives the token from its opener, posts the picked HTML back.
+    // =====================================================================
+    if (isPopup) {
+      document.getElementById('root').innerHTML = '<div id="selector" style="height:100vh"></div>';
+      const $selector = document.getElementById('selector');
 
-    function renderWithAuthFlow(cfg) {
-      const imsProps = {
-        env: 'prod',
-        imsClientId: cfg.imsClientId,
-        imsScope: cfg.imsScope,
-        redirectUrl: window.location.href,
-        modalMode: true,
-      };
-      if (cfg.imsOrg) imsProps.imsOrg = cfg.imsOrg;
-      window.PureJSSelectors.registerAssetsSelectorsAuthService(imsProps);
-      const props = {
-        aemTierType: ['delivery', 'author'],
-        handleSelection: insertAssets,
-        onClose: () => {},
-        colorScheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
-      };
-      if (cfg.allowedRepositoryIds.length) props.allowedRepositoryIds = cfg.allowedRepositoryIds;
-      if (cfg.imsOrg) props.imsOrg = cfg.imsOrg;
-      window.PureJSSelectors.renderAssetSelectorWithAuthFlow($selector, props, () => {});
-    }
-
-    (async function init() {
-      dbg('<b>asset-picker diagnostics</b>');
-      await ready;
-      dbg(`da.live handshake: port=${!!daPort}, token=${daToken ? `yes (len ${daToken.length})` : 'no'}`);
-
-      const cfg = await readConfig();
-      dbg(`config: imsClientId=${cfg.imsClientId || '(none)'}, imsOrg=${cfg.imsOrg || '(none)'}, allowedRepos=${cfg.allowedRepositoryIds.length}`);
-
-      const PJS = window.PureJSSelectors;
-      dbg(`PureJSSelectors: ${PJS ? 'loaded' : 'MISSING'}`);
-      if (!PJS) {
-        $status.innerHTML = 'Could not load the Adobe Assets Selector script (blocked or offline).';
-        return;
+      function render(token) {
+        const claims = decodeJwt(token);
+        const props = {
+          imsToken: token,
+          imsClientId: claims.client_id,
+          imsScope: claims.scope,
+          aemTierType: ['delivery', 'author'],
+          colorScheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+          handleSelection: (assets) => {
+            const html = assetsToHtml(assets);
+            if (html && window.opener) window.opener.postMessage({ pickedHtml: html }, '*');
+            window.close();
+          },
+          onClose: () => window.close(),
+        };
+        if (claims.org) props.imsOrg = claims.org;
+        dbg(`popup render: clientId=${props.imsClientId}, org=${props.imsOrg || '(none)'}`);
+        try { window.PureJSSelectors.renderAssetSelector($selector, props); }
+        catch (e) { dbg(`render threw: ${e.message}`); }
       }
-      dbg(`available fns: ${Object.keys(PJS).filter((k) => typeof PJS[k] === 'function').join(', ') || '(none)'}`);
 
-      try {
-        if (cfg.imsClientId && PJS.renderAssetSelectorWithAuthFlow) {
-          dbg('path: auth-flow (imsClientId configured)');
-          $status.hidden = true;
-          renderWithAuthFlow(cfg);
-        } else if (daToken && typeof PJS.renderAssetSelector === 'function') {
-          dbg('path: da.live token + renderAssetSelector');
-          $status.hidden = true;
-          renderWithToken(daToken, cfg);
-        } else if (PJS.renderAssetSelectorWithAuthFlow) {
-          dbg('path: no token -> auth-flow fallback (needs imsClientId, may be empty)');
-          $status.hidden = true;
-          renderWithAuthFlow(cfg);
-        } else {
-          dbg('path: NONE — no token and no auth-flow fn');
-          $status.innerHTML = 'No AEM access available. Set <code>aem.assets.imsClientId</code> in <code>/config.json</code>.';
+      window.addEventListener('message', (e) => {
+        if (e.data && e.data.token) render(e.data.token);
+      });
+      // Ask the opener (the da.live panel iframe) for the token.
+      if (window.opener) window.opener.postMessage({ pickerReady: true }, '*');
+      else dbg('no opener — open this from the da.live panel.');
+
+    // =====================================================================
+    // CONTROLLER MODE: small da.live panel. Handshake with da.live, show a
+    // button that opens the big popup, relay the picked asset into the doc.
+    // =====================================================================
+    } else {
+      let daPort = null;
+      let daToken = null;
+      let popup = null;
+
+      document.getElementById('root').innerHTML = `
+        <div class="pad">
+          <p class="lead">Browse AEM Assets and insert images into the document.</p>
+          <button class="primary" id="browse" disabled>Browse AEM Assets…</button>
+          <p class="note">Opens in a larger window. The selected asset is inserted at your cursor.</p>
+        </div>`;
+      const $browse = document.getElementById('browse');
+
+      // da.live handshake
+      window.addEventListener('message', (e) => {
+        if (e.data && e.data.ready) {
+          daToken = e.data.token || null;
+          if (e.ports && e.ports[0]) daPort = e.ports[0];
+          dbg(`da.live: port=${!!daPort}, token=${daToken ? 'yes' : 'no'}`);
+          $browse.disabled = !daToken;
+          if (!daToken) $browse.textContent = 'No AEM session (sign in to da.live)';
         }
-      } catch (err) {
-        dbg(`render threw: ${err?.message || err}`);
-        $status.hidden = false;
-        $status.innerHTML = `Render error: ${err?.message || err}`;
-      }
-      // Report whether the selector actually produced DOM.
-      setTimeout(() => dbg(`selector children after render: ${$selector.childElementCount}`), 1500);
-    }());
+        // messages from the popup
+        if (e.data && e.data.pickerReady && popup) {
+          popup.postMessage({ token: daToken }, '*');
+        }
+        if (e.data && e.data.pickedHtml && daPort) {
+          daPort.postMessage({ action: 'sendHTML', details: e.data.pickedHtml });
+          dbg('inserted selection into doc');
+        }
+      });
+
+      $browse.addEventListener('click', () => {
+        if (!daToken) return;
+        const url = `${location.pathname}?mode=popup`;
+        popup = window.open(url, 'aem-asset-picker', 'width=1200,height=820,resizable=yes,scrollbars=yes');
+        if (!popup) dbg('popup blocked — allow popups for da.live');
+      });
+    }
   </script>
 </body>
 </html>
