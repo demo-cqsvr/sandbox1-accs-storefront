@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Product Picker</title>
+  <style>
+    :root {
+      --bg: #fff; --fg: #2c2c2c; --muted: #6e6e6e; --line: #e1e1e1;
+      --accent: #1473e6; --accent-fg: #fff; --chip: #f4f4f4; --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--fg); background: var(--bg); font-size: 14px;
+      display: flex; flex-direction: column; height: 100vh;
+    }
+    header { padding: 12px 12px 8px; border-bottom: 1px solid var(--line); }
+    .search { display: flex; gap: 8px; }
+    .search input {
+      flex: 1; padding: 8px 10px; border: 1px solid var(--line);
+      border-radius: var(--radius); font-size: 14px; outline: none;
+    }
+    .search input:focus { border-color: var(--accent); }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .status { padding: 16px 12px; color: var(--muted); }
+    .list { flex: 1; overflow: auto; padding: 8px; }
+    .item {
+      display: grid; grid-template-columns: 44px 1fr auto; gap: 10px;
+      align-items: center; padding: 8px; border: 1px solid var(--line);
+      border-radius: var(--radius); margin-bottom: 8px; background: var(--bg);
+    }
+    .item.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+    .thumb {
+      width: 44px; height: 44px; border-radius: 6px; object-fit: cover;
+      background: var(--chip); border: 1px solid var(--line);
+    }
+    .meta { min-width: 0; }
+    .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .sku { font-family: ui-monospace, Menlo, monospace; }
+    .actions { display: flex; align-items: center; gap: 8px; }
+    .pick { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; cursor: pointer; }
+    button {
+      font: inherit; cursor: pointer; border-radius: var(--radius);
+      border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+      padding: 6px 10px;
+    }
+    button:hover { border-color: var(--accent); color: var(--accent); }
+    button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+    button.primary:disabled { opacity: .45; cursor: default; background: var(--muted); border-color: var(--muted); color: #fff; }
+    footer {
+      border-top: 1px solid var(--line); padding: 10px 12px;
+      display: flex; gap: 8px; align-items: center; justify-content: space-between;
+    }
+    footer .count { color: var(--muted); font-size: 12px; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #1f1f1f; --fg: #e8e8e8; --muted: #9a9a9a; --line: #3a3a3a; --chip: #2a2a2a; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="search">
+      <input id="q" type="search" placeholder="Search products…" autocomplete="off" />
+    </div>
+    <div class="hint">Click <b>SKU</b> to insert the code, or tick items and insert a <b>Featured Products</b> block.</div>
+  </header>
+
+  <div id="status" class="status">Connecting…</div>
+  <div id="list" class="list" hidden></div>
+
+  <footer>
+    <span class="count" id="count">0 selected</span>
+    <button id="insertBlock" class="primary" disabled>Insert Featured Products block</button>
+  </footer>
+
+  <script type="module">
+    // ---- da.live plugin handshake ---------------------------------------
+    // da.live posts { ready, project, token } plus a MessagePort to this iframe.
+    let daPort = null;
+    let daProject = null;
+    const parentOrigin = '*';
+
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.ready) {
+        daProject = e.data.project || e.data.context || null;
+        if (e.ports && e.ports[0]) daPort = e.ports[0];
+      }
+    });
+
+    // Send an action to da.live (prefer the MessagePort, fall back to parent).
+    function sendToDa(action, details) {
+      const msg = { action, details };
+      if (daPort) { daPort.postMessage(msg); return; }
+      try { window.parent.postMessage(msg, parentOrigin); } catch (_) { /* noop */ }
+    }
+
+    function insertSku(sku) {
+      sendToDa('sendText', sku);
+    }
+
+    // Build a Featured Products block as a table (how da.live authors blocks)
+    // and insert it so the chosen SKUs render as product cards.
+    function insertFeaturedBlock(skus) {
+      const rows = skus.map((s) => `<tr><td>${s}</td></tr>`).join('');
+      const table = `<table><tr><td>Featured Products</td></tr>${rows}</table>`;
+      sendToDa('sendHTML', table);
+    }
+
+    // ---- Catalog Service -------------------------------------------------
+    let cfg = null;
+
+    async function loadConfig() {
+      // Served from the same origin as the storefront → /config.json works.
+      const res = await fetch('/config.json', { cache: 'no-store' });
+      const json = await res.json();
+      const pub = (json.public || json).default || {};
+      const endpoint = pub['commerce-endpoint'] || pub['commerce-core-endpoint'];
+      const h = pub.headers || {};
+      const headers = { 'Content-Type': 'application/json', ...(h.all || {}), ...(h.cs || {}) };
+      return { endpoint, headers };
+    }
+
+    const QUERY = `query($phrase:String!,$pageSize:Int!){
+      productSearch(phrase:$phrase, page_size:$pageSize){
+        items { productView {
+          sku name urlKey
+          images { url roles }
+          ... on SimpleProductView { price { final { amount { value currency } } } }
+          ... on ComplexProductView { priceRange { minimum { final { amount { value currency } } } } }
+        } }
+      }
+    }`;
+
+    async function search(phrase) {
+      if (!cfg) cfg = await loadConfig();
+      const res = await fetch(cfg.endpoint, {
+        method: 'POST',
+        headers: cfg.headers,
+        body: JSON.stringify({ query: QUERY, variables: { phrase: phrase || '', pageSize: 24 } }),
+      });
+      const json = await res.json();
+      const items = json?.data?.productSearch?.items || [];
+      return items.map((i) => i.productView).filter(Boolean);
+    }
+
+    // ---- UI --------------------------------------------------------------
+    const $q = document.getElementById('q');
+    const $list = document.getElementById('list');
+    const $status = document.getElementById('status');
+    const $count = document.getElementById('count');
+    const $insertBlock = document.getElementById('insertBlock');
+    const selected = new Map(); // sku -> true (insertion order preserved)
+
+    function pickImage(images = []) {
+      const byRole = (r) => images.find((i) => (i.roles || []).includes(r));
+      return (byRole('small_image') || byRole('thumbnail') || byRole('image') || images[0])?.url || '';
+    }
+    function priceOf(p) {
+      const a = p?.price?.final?.amount || p?.priceRange?.minimum?.final?.amount;
+      if (!a) return '';
+      try { return new Intl.NumberFormat('en-MY', { style: 'currency', currency: a.currency || 'MYR', currencyDisplay: 'code' }).format(a.value); }
+      catch { return `${a.currency || ''} ${a.value}`.trim(); }
+    }
+    function esc(s = '') { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+    function refreshFooter() {
+      const n = selected.size;
+      $count.textContent = `${n} selected`;
+      $insertBlock.disabled = n === 0;
+      $insertBlock.textContent = n ? `Insert Featured Products block (${n})` : 'Insert Featured Products block';
+    }
+
+    function render(products) {
+      $status.hidden = true;
+      $list.hidden = false;
+      if (!products.length) {
+        $list.innerHTML = '<div class="status">No products found.</div>';
+        return;
+      }
+      $list.innerHTML = products.map((p) => {
+        const img = pickImage(p.images);
+        const price = priceOf(p);
+        const isSel = selected.has(p.sku);
+        return `<div class="item ${isSel ? 'selected' : ''}" data-sku="${esc(p.sku)}">
+          <img class="thumb" src="${esc(img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+          <div class="meta">
+            <div class="name" title="${esc(p.name)}">${esc(p.name)}</div>
+            <div class="sub"><span class="sku">${esc(p.sku)}</span>${price ? ` · ${esc(price)}` : ''}</div>
+          </div>
+          <div class="actions">
+            <label class="pick"><input type="checkbox" data-pick ${isSel ? 'checked' : ''}> add</label>
+            <button data-insert-sku>SKU</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    $list.addEventListener('click', (e) => {
+      const row = e.target.closest('.item');
+      if (!row) return;
+      const sku = row.dataset.sku;
+      if (e.target.closest('[data-insert-sku]')) { insertSku(sku); flash(row); }
+    });
+    $list.addEventListener('change', (e) => {
+      if (!e.target.matches('[data-pick]')) return;
+      const row = e.target.closest('.item');
+      const sku = row.dataset.sku;
+      if (e.target.checked) selected.set(sku, true); else selected.delete(sku);
+      row.classList.toggle('selected', e.target.checked);
+      refreshFooter();
+    });
+    $insertBlock.addEventListener('click', () => {
+      if (!selected.size) return;
+      insertFeaturedBlock([...selected.keys()]);
+      selected.clear();
+      [...$list.querySelectorAll('[data-pick]')].forEach((c) => { c.checked = false; });
+      [...$list.querySelectorAll('.item')].forEach((i) => i.classList.remove('selected'));
+      refreshFooter();
+    });
+
+    function flash(row) {
+      row.style.transition = 'background .15s';
+      const prev = row.style.background;
+      row.style.background = 'rgba(20,115,230,.15)';
+      setTimeout(() => { row.style.background = prev; }, 220);
+    }
+
+    let t;
+    $q.addEventListener('input', () => {
+      clearTimeout(t);
+      t = setTimeout(run, 300);
+    });
+
+    async function run() {
+      $status.hidden = false;
+      $list.hidden = true;
+      $status.textContent = 'Searching…';
+      try {
+        const products = await search($q.value.trim());
+        render(products);
+      } catch (err) {
+        $status.hidden = false;
+        $list.hidden = true;
+        $status.textContent = `Could not load products: ${err.message}`;
+      }
+    }
+
+    run(); // initial load (empty phrase → featured/first products)
+  </script>
+</body>
+</html>
