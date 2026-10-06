@@ -62,6 +62,14 @@
       setTimeout(resolve, 3000);
     });
 
+    // Decode a JWT payload (the da.live access token) to reuse its client_id/scope.
+    function decodeJwt(t) {
+      try {
+        const p = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        return JSON.parse(decodeURIComponent(escape(atob(p))));
+      } catch { return {}; }
+    }
+
     function sendToDa(action, details) {
       const msg = { action, details };
       if (daPort) daPort.postMessage(msg);
@@ -143,15 +151,24 @@
     //    signed-in user can access (filtered by allowedRepositoryIds if set).
     // ---------------------------------------------------------------------
     function renderWithToken(token, cfg) {
+      const claims = decodeJwt(token);
+      // When reusing the da.live token, its own client_id/scope are authoritative.
+      const imsClientId = claims.client_id || cfg.imsClientId;
+      const imsScope = claims.scope || cfg.imsScope;
+      // da.live tokens carry the org in the `pps`/`aa_id` area; try common claims.
+      const imsOrg = cfg.imsOrg || claims.org || claims.imsOrg || '';
+      dbg(`token-render: clientId=${imsClientId || '(none)'}, scope len=${(imsScope || '').length}, org=${imsOrg || '(none)'}`);
       const props = {
         imsToken: token,
+        imsClientId,
+        imsScope,
         aemTierType: ['delivery', 'author'],
         handleSelection: insertAssets,
         onClose: () => {},
         colorScheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
       };
+      if (imsOrg) props.imsOrg = imsOrg;
       if (cfg.allowedRepositoryIds.length) props.allowedRepositoryIds = cfg.allowedRepositoryIds;
-      if (cfg.imsOrg) props.imsOrg = cfg.imsOrg;
       window.PureJSSelectors.renderAssetSelector($selector, props);
     }
 
