@@ -19,6 +19,12 @@
     #status b { color: var(--fg); }
     #status code { background:#f4f4f4; padding:1px 5px; border-radius:4px; font-size:12px; }
     #selector { flex: 1; min-height: 0; }
+    #dbg {
+      font: 11px ui-monospace, Menlo, monospace; color: var(--muted);
+      border-top: 1px solid var(--line); padding: 6px 10px; white-space: pre-wrap;
+      max-height: 120px; overflow: auto; background: rgba(127,127,127,.06);
+    }
+    #dbg b { color: var(--accent); }
     @media (prefers-color-scheme: dark) {
       :root { --bg:#1f1f1f; --fg:#e8e8e8; --muted:#9a9a9a; --line:#3a3a3a; }
       #status code { background:#2a2a2a; }
@@ -28,6 +34,7 @@
 <body>
   <div id="status">Connecting to da.live…</div>
   <div id="selector"></div>
+  <div id="dbg"></div>
 
   <script type="module">
     // ---------------------------------------------------------------------
@@ -38,6 +45,10 @@
     let daToken = null;
     const $status = document.getElementById('status');
     const $selector = document.getElementById('selector');
+    const $dbg = document.getElementById('dbg');
+    const dbg = (m) => { $dbg.innerHTML += `${m}\n`; };
+    window.addEventListener('error', (e) => dbg(`window error: ${e.message}`));
+    window.addEventListener('unhandledrejection', (e) => dbg(`promise rejection: ${e.reason?.message || e.reason}`));
 
     const ready = new Promise((resolve) => {
       window.addEventListener('message', (e) => {
@@ -166,31 +177,45 @@
     }
 
     (async function init() {
+      dbg('<b>asset-picker diagnostics</b>');
       await ready;
+      dbg(`da.live handshake: port=${!!daPort}, token=${daToken ? `yes (len ${daToken.length})` : 'no'}`);
+
       const cfg = await readConfig();
+      dbg(`config: imsClientId=${cfg.imsClientId || '(none)'}, imsOrg=${cfg.imsOrg || '(none)'}, allowedRepos=${cfg.allowedRepositoryIds.length}`);
 
-      if (!window.PureJSSelectors) {
-        $status.innerHTML = 'Could not load the Adobe Assets Selector script.';
+      const PJS = window.PureJSSelectors;
+      dbg(`PureJSSelectors: ${PJS ? 'loaded' : 'MISSING'}`);
+      if (!PJS) {
+        $status.innerHTML = 'Could not load the Adobe Assets Selector script (blocked or offline).';
         return;
       }
+      dbg(`available fns: ${Object.keys(PJS).filter((k) => typeof PJS[k] === 'function').join(', ') || '(none)'}`);
 
-      // Prefer an explicitly configured IMS client (its own login = full repo
-      // discovery). Otherwise reuse the da.live session token.
-      if (cfg.imsClientId && window.PureJSSelectors.renderAssetSelectorWithAuthFlow) {
-        $status.hidden = true;
-        renderWithAuthFlow(cfg);
-        return;
+      try {
+        if (cfg.imsClientId && PJS.renderAssetSelectorWithAuthFlow) {
+          dbg('path: auth-flow (imsClientId configured)');
+          $status.hidden = true;
+          renderWithAuthFlow(cfg);
+        } else if (daToken && typeof PJS.renderAssetSelector === 'function') {
+          dbg('path: da.live token + renderAssetSelector');
+          $status.hidden = true;
+          renderWithToken(daToken, cfg);
+        } else if (PJS.renderAssetSelectorWithAuthFlow) {
+          dbg('path: no token -> auth-flow fallback (needs imsClientId, may be empty)');
+          $status.hidden = true;
+          renderWithAuthFlow(cfg);
+        } else {
+          dbg('path: NONE — no token and no auth-flow fn');
+          $status.innerHTML = 'No AEM access available. Set <code>aem.assets.imsClientId</code> in <code>/config.json</code>.';
+        }
+      } catch (err) {
+        dbg(`render threw: ${err?.message || err}`);
+        $status.hidden = false;
+        $status.innerHTML = `Render error: ${err?.message || err}`;
       }
-
-      if (daToken) {
-        $status.hidden = true;
-        renderWithToken(daToken, cfg);
-        return;
-      }
-
-      $status.innerHTML = 'No AEM access was available. Sign in to da.live, or set '
-        + '<code>aem.assets.imsClientId</code> in <code>/config.json</code> to use a '
-        + 'dedicated Assets Selector sign-in.';
+      // Report whether the selector actually produced DOM.
+      setTimeout(() => dbg(`selector children after render: ${$selector.childElementCount}`), 1500);
     }());
   </script>
 </body>
